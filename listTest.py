@@ -2,10 +2,7 @@ import sys
 import spotipy
 from spotipy import SpotifyOAuth
 import spotipy.util as util
-import xlrd
 import os
-import re
-import time
 
 SCOPE = 'user-library-read,playlist-modify-private,user-read-private,playlist-modify-public'
 REDIRECT_URI = 'http://localhost/'
