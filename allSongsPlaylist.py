@@ -43,14 +43,6 @@ def main():
     while(True):
         print("Booting up to refresh 'All' playlist")
 
-        # Check if 'All' playlist is currently in use so that refresh does not disturb user
-        result = sp.current_user_playing_track()
-        if(result != None and (('context' in result) and ('href' in result['context']) and (type(result['context']['href']) == str) and (playlistID in result['context']['href']))):
-            print("Cannot refresh, \'All\' playlist is currently in use. Sleeping for 1 hour...")
-            print()
-            time.sleep(3600)
-            continue
-
         # Get all playlists info and insert into playlists
         playlistResults = sp.user_playlists(USERNAME, limit=50)
         playlists = playlistResults['items']
@@ -69,6 +61,15 @@ def main():
             while trackResults['next']:
                 trackResults = sp.next(trackResults)
                 trackList.extend(trackResults['items'])
+
+        # Check if 'All' playlist is currently in use so that refresh does not disturb user
+        result = sp.current_user_playing_track()
+        print(result)
+        if(result is not None and (('context' in result) and ('href' in result['context']) and (type(result['context']['href']) == str) and (playlistID is not None) and (playlistID in result['context']['href']))):
+            print("Cannot refresh, \'All\' playlist is currently in use. Sleeping for 1 hour...")
+            print()
+            time.sleep(3600)
+            continue
 
         # Extract song id and name for all songs in trackList
         for track in trackList:
