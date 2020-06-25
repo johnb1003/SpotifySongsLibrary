@@ -1,94 +1,114 @@
 import sys
 import spotipy
+from spotipy import SpotifyOAuth
 import spotipy.util as util
-import xlrd
 import os
-import re
 import time
 
-SCOPE = 'user-library-read,playlist-modify-private,user-read-private,playlist-modify-public'
-REDIRECT_URI = 'http://localhost/'
+# HIGH LEVEL DESIGN
+# Loop through all playlists and add all songs from every playlist to allSongsDict
 
-
-class Song:
-    def __init__(self, title='', time=0, artist=[], album='', genre='', songID='', matchScore=0, playlists=[]):
-        self.title = title
-        self.time = time
-        self.artist = artist
-        self.album = album
-        self.genre = genre
-        self.songID = songID
-        self.matchScore = matchScore
-        self.returnedResults = 0
-        self.playlists = playlists
-
-# List of playlist IDs
-playlistList = []
-
-# Dictionary of all songs from all playlists {song['id']: song['name']}
-allSongsDict = {}
+# Sort allSongsDict by song title
 # sortedSongs = sorted(allSongsDict, key=allSongsDict.get)
 
-def main(usr, cid, csec):
-    USERNAME = os.environ.get('SPOTIFY_USER')
+# If "All" playlist doesn't exist create it
+# ** user_playlist_create(user, name, public=True, description='') **
+
+# Replace whole playlist with new (alphabetically) sorted allSongsDict
+# ** sp.user_playlist_replace_tracks(user, playlist_id, tracks) ** (100 song limit) 
+
+# Add all remaining songs from allSongsDict
+# ** user_playlist_add_tracks(user, playlist_id, tracks, position=None) ** (100 song limit)
+
+def main():
+
+    # Dictionary of all songs from all playlists {song['id']: song['name']}
+    allSongsDict = {}
+
+    trackList = []
+
+    USERNAME = os.environ.get('SPOTIFY_USER_JOHN')
     CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
     CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
+    REDIRECT_URI = 'http://localhost/'
+    SCOPE = 'user-library-read,playlist-modify-private,user-read-private,playlist-modify-public,user-read-currently-playing'
 
-    # Connect to Spotify API with credentials declared earlier
-    token = util.prompt_for_user_token(USERNAME, SCOPE,  client_id=CLIENT_ID, client_secret=CLIENT_SECRET, redirect_uri=REDIRECT_URI)
-
-    if token:
-        sp = spotipy.Spotify(auth=token)
-
-        print("Retrieving current Spotify playlists...")
-        # Get list of all current playlists on Spotify and list of all songs in them
-        setOff=0
-        hasNext = True
-        while (hasNext):
-            playlists = sp.user_playlists(USERNAME, limit=50, offset=setOff)
-            hasNext = not (playlists['next'] == None)
-            setOff = playlists['offset'] + 1
-
-            for playlist in playlists['items']:
-                setOff2 = 0
-                hasNext2 = True
-
-                playlistDic[playlist['name']] = (playlist['id'], [])
-                while (hasNext2):
-                    playlistTracks = sp.user_playlist_tracks(user=USERNAME, playlist_id=playlist['id'], fields=None, limit=100, offset=setOff2, market='from_token')
-                    hasNext2 = not (playlistTracks['next'] == None)
-                    setOff2 = playlistTracks['offset'] + 1
-                    if(len(playlistTracks['items']) > 0):
-                        for track in playlistTracks['items']:
-                            playlistDic[playlist['name']][1].append(track['track']['id'].replace("'", '').strip())
+    playlistID = None
 
 
-        print("Adding songs to appropriate Spotify playlists...")
-        # Add songs to playlists depending on if playlist exists / if song is already on playlist
-        for song in allSongsSpotify:
-            if not (sp.current_user_saved_tracks_contains(tracks=[song.songID.strip()])):
-                sp.current_user_saved_tracks_add(tracks=[song.songID.strip()])
-            if not song.playlists[0] == '':
-                time.sleep(.2)
-                for playlist in song.playlists:
-                    playlistName = playlist.replace('.txt', '')
-                    # Does playlist already exist?
-                    if playlistName in playlistDic.keys():
-                        if song.songID.strip() not in playlistDic[playlistName][1]:
-                            # add song to playlist
-                            #print('Adding song %s to playlist %s'%(song.title, playlistName))
-                            sp.user_playlist_add_tracks(user=USERNAME, playlist_id=playlistDic[playlistName][0], tracks=[song.songID.strip()])
-                            playlistDic[playlistName][1].append(song.songID)
-                        else:
-                            #print('Song %s already exists in playlist %s'%(song.title, playlistName))
-                            pass
-                    else:
-                        # Create new Playlist and song
-                        #print('Creating new playlist %s and adding song %s'%(playlistName, song.title))
-                        newPlaylist = sp.user_playlist_create(user=USERNAME, name=playlistName, public=True)
-                        sp.user_playlist_add_tracks(user=USERNAME, playlist_id=newPlaylist['id'], tracks=[song.songID.strip()])
-                        playlistDic[playlistName] = (newPlaylist['id'], [])
-                        playlistDic[playlistName][1].append(song.songID.strip())
-        print("Transfer complete!")
-    else:
-        print("Can't get token for ", USERNAME)    
+    # Connect to Spotify API with credentials declared above
+    auth = SpotifyOAuth(username=USERNAME, client_id=CLIENT_ID, client_secret=CLIENT_SECRET, redirect_uri=REDIRECT_URI, scope=SCOPE)
+    sp = spotipy.Spotify(auth_manager=auth)
+
+    while(True):
+        print("Booting up to refresh 'All' playlist")
+
+        # Check if 'All' playlist is currently in use so that refresh does not disturb user
+        result = sp.current_user_playing_track()
+        if(result != None and (('context' in result) and ('href' in result['context']) and (type(result['context']['href']) == str) and (playlistID in result['context']['href']))):
+            print("Cannot refresh, \'All\' playlist is currently in use. Sleeping for 1 hour...")
+            print()
+            time.sleep(3600)
+            continue
+
+        # Get all playlists info and insert into playlists
+        playlistResults = sp.user_playlists(USERNAME, limit=50)
+        playlists = playlistResults['items']
+        while playlistResults['next']:
+            playlistResults = sp.next(playlistResults)
+            playlists.extend(playlistResults['items'])
+        
+        print("Retrieving songs from all user playlists")
+        for playlist in playlists:
+            if(playlist['name'] == 'All'): 
+                playlistID = playlist['id']
+            
+            # Get all songs info from each playlist and insert into trackList
+            trackResults = sp.user_playlist_tracks(USERNAME, playlist['id'])
+            trackList.extend(trackResults['items'])
+            while trackResults['next']:
+                trackResults = sp.next(trackResults)
+                trackList.extend(trackResults['items'])
+
+        # Extract song id and name for all songs in trackList
+        for track in trackList:
+            allSongsDict[track['track']['id'].replace("'", '')] = track['track']['name'].lower().replace("'", '')
+
+        # Sort songs alphabetically
+        sortedSongs = sorted(allSongsDict, key=allSongsDict.get)
+
+        # Create 'All' playlist if it doesn't exist
+        if(playlistID == None):
+            playlistID = sp.user_playlist_create(user=USERNAME, name='All', public=True)['id']
+
+        # Replace all songs from 'All' playlist with an empty list (Clear the playlist)
+        sp.user_playlist_replace_tracks(USERNAME, playlistID, [])
+
+        
+        print("Adding songs to 'All' playist ...")
+
+        # Add all songs from allSongsDict to 'All' playlist
+        # allSongs = list(sortedSongs.keys())
+        allSongs = sortedSongs
+        tracks = []
+        i = 100
+        while(i < len(allSongs)):
+            tracks = allSongs[i-100:i]
+            sp.user_playlist_add_tracks(USERNAME, playlistID, tracks)
+            i += 100
+            # print("100 songs added")
+            time.sleep(1)
+
+        if(len(allSongs) % i != 0):
+            tracks = allSongs[(i-100):]
+            sp.user_playlist_add_tracks(USERNAME, playlistID, tracks)
+            # print("%d songs added" % (len(allSongs) % 100))
+
+        print("Finished sorting and adding songs. Sleeping for 1 hour...")
+        print()
+        time.sleep(3600)            # Wait for 1 minute before running again
+
+main()
+
+
+
