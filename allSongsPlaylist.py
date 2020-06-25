@@ -106,7 +106,7 @@ def main():
 
         print("Finished sorting and adding songs. Sleeping for 1 hour...")
         print()
-        time.sleep(3600)            # Wait for 1 minute before running again
+        time.sleep(3600)            # Wait for 1 hour before running again
 
 main()
 
