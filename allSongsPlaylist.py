@@ -30,7 +30,7 @@ def main():
     USERNAME = os.environ.get('SPOTIFY_USER_JOHN')
     CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
     CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
-    REDIRECT_URI = 'http://localhost/'
+    REDIRECT_URI = 'https://localhost:8080/'
     SCOPE = 'user-library-read,playlist-modify-private,user-read-private,playlist-modify-public,user-read-currently-playing'
 
     playlistID = None
