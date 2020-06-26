@@ -27,7 +27,7 @@ def main():
 
     trackList = []
 
-    USERNAME = os.environ.get('SPOTIFY_USER_CAROLINE')
+    USERNAME = os.environ.get('SPOTIFY_USER_JOHN')
     CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
     CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
     REDIRECT_URI = 'https://localhost:8080/'
