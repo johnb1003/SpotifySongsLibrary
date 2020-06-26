@@ -27,7 +27,7 @@ def main():
 
     trackList = []
 
-    USERNAME = os.environ.get('SPOTIFY_USER_JOHN')
+    USERNAME = os.environ.get('SPOTIFY_USER_CAROLINE')
     CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID')
     CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET')
     REDIRECT_URI = 'https://localhost:8080/'
@@ -58,22 +58,24 @@ def main():
             # Get all songs info from each playlist and insert into trackList
             trackResults = sp.user_playlist_tracks(USERNAME, playlist['id'])
             trackList.extend(trackResults['items'])
+            for track in trackResults['items']:
+                if(track['track']['id'] is not None and track['track']['name'] is not None):
+                    allSongsDict[track['track']['id'].replace("'", '') ] = track['track']['name'].lower().replace("'", '')
+
             while trackResults['next']:
                 trackResults = sp.next(trackResults)
                 trackList.extend(trackResults['items'])
+                for track in trackResults['items']:
+                    if(track['track']['id'] is not None and track['track']['name'] is not None):  
+                        allSongsDict[track['track']['id'].replace("'", '')] = track['track']['name'].lower().replace("'", '')
 
         # Check if 'All' playlist is currently in use so that refresh does not disturb user
         result = sp.current_user_playing_track()
-        print(result)
         if(result is not None and (('context' in result) and ('href' in result['context']) and (type(result['context']['href']) == str) and (playlistID is not None) and (playlistID in result['context']['href']))):
             print("Cannot refresh, \'All\' playlist is currently in use. Sleeping for 1 hour...")
             print()
             time.sleep(3600)
             continue
-
-        # Extract song id and name for all songs in trackList
-        for track in trackList:
-            allSongsDict[track['track']['id'].replace("'", '')] = track['track']['name'].lower().replace("'", '')
 
         # Sort songs alphabetically
         sortedSongs = sorted(allSongsDict, key=allSongsDict.get)
